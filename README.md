@@ -7,7 +7,7 @@ We propose Variational Reasoning over Incomplete KGs Conversational Recommender.
 ![avatar](model.png)
 
 ## Saved Models
-We have trained our model on two datasets and saved the parameters, all of which have been uploaded to [Google Drive]().
+We have trained our model on two datasets and saved the parameters, all of which have been uploaded to [Google Drive](https://drive.google.com/drive/folders/1Ys3lz0nlnobTPoWUqlsmiVOeiRKGMW3p?usp=sharing).
 
 The downloaded ckpt files should be moved into `data/ckpt`.
 
