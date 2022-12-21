@@ -4,6 +4,9 @@ from resource.option.dataset_option import DatasetOption as DO
 import jieba
 from rouge import Rouge
 def cal_calculate(outs):
+    if DO.dataset == "Redial":
+        mid2name = json.load(open(DO.mid2name))
+
     unigram_count = 0
     bigram_count = 0
     trigram_count = 0
@@ -15,7 +18,22 @@ def cal_calculate(outs):
 
     if DO.dataset == "Redial":
         for sentence in outs:
-            full_sen_gen = sentence.split(" ")
+            sentence = sentence.split(" ")
+
+            # full_sen_gen = []
+            # for word in sentence:
+            #     if '@' in word:
+            #         movie_id = word[1:]
+            #         if movie_id in mid2name:
+            #             movie = mid2name[movie_id]
+            #             tokens = movie.split(' ')
+            #             full_sen_gen.extend(tokens)
+            #         else:
+            #             full_sen_gen.append(word)
+            #     else:
+            #         full_sen_gen.append(word)
+
+            full_sen_gen = sentence
 
             for word in full_sen_gen:
                 unigram_count += 1
@@ -62,36 +80,35 @@ def cal_calculate(outs):
                 quagram_count += 1
                 quagram_set.add(quag)
 
-    dis1 = len(unigram_set) / unigram_count  # len(outs)
-    dis2 = len(bigram_set) / bigram_count  # len(outs)
-    dis3 = len(trigram_set) / trigram_count  # len(outs)
-    dis4 = len(quagram_set) / quagram_count  # len(outs)
+    dis1 = len(unigram_set) / unigram_count  # unigram_count
+    dis2 = len(bigram_set) / bigram_count  # bigram_count
+    dis3 = len(trigram_set) / trigram_count  # trigram_count
+    dis4 = len(quagram_set) / quagram_count  # quagram_count
     return dis1, dis2, dis3, dis4
 
 
-def _cal_rouge(hypothesis,reference,identity, dataset = "redial"):
+def _cal_rouge(hypothesis,reference):
     """
     both hypothesis and reference are str
     """
-    if dataset == 'TG':
-        hypothesis = ' '.join(list(jieba.cut(hypothesis)))
-        reference = ' '.join(list(jieba.cut(reference)))
     if hypothesis == '':
         return 0,0,0
     rouge = Rouge()
     try:
         scores = rouge.get_scores(hypothesis, reference)
+        return scores[0]['rouge-1']['f'],scores[0]['rouge-2']['f'],scores[0]['rouge-l']['f']
     except:
-        print(hypothesis,reference)
-    return scores[0]['rouge-1']['f'],scores[0]['rouge-2']['f'],scores[0]['rouge-l']['f']
+        print("something wrong here! ",hypothesis,reference)
+        return 0,0,0
+    
 
 def cal_rouge(hypothesis_list,reference_list,dataset = "Redial",identities =None):
     """
-    hypothesis_list & reference_list ： list of str
+    hypothesis_list & reference_list �?list of str
     """
     rouge1_sum, rouge2_sum, rouge_l_sum,cnt = 0,0,0,0
     for hypothesis,reference,identity in zip(hypothesis_list,reference_list,identities):
-        rouge1,rouge2,rouge_l = _cal_rouge(hypothesis,reference,dataset)
+        rouge1,rouge2,rouge_l = _cal_rouge(hypothesis,reference)
         rouge1_sum += rouge1
         rouge2_sum += rouge2
         rouge_l_sum += rouge_l

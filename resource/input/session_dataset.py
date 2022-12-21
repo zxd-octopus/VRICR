@@ -42,11 +42,12 @@ def clip_pad_sentence(sentence,
     return sentence, sentence_length,sentence_mask
 
 def my_collate_fn(batch):
-    identities = [x[0] for x in batch]
-    batch = [ x[1:] for x in batch]
+    all_movies = [x[0] for x in batch]
+    identities = [x[1] for x in batch]
+    batch = [ x[2:] for x in batch]
 
     batch = default_collate(batch)
-    return [batch,identities]
+    return [batch,all_movies,identities]
 
 
 class SessionDataset(Dataset):
@@ -121,6 +122,7 @@ class SessionDataset(Dataset):
         target = case["items"]
         response = case["response"]
         context_gen = case["context_tokens_gen"]
+        all_movie = case["all_movies"]
 
         es_idx = topic_path if topic_path != [] else [
             self.topic_class_num]
@@ -149,8 +151,8 @@ class SessionDataset(Dataset):
 
         q_context_index = self.tokenizer.tokenize(self.id_to_topic[target])
         q_context_index = self.tokenizer.convert_tokens_to_ids(q_context_index) + [DO.PreventWord.target_EOS_ID]
-        if not TO.wc:
-            q_context_index.extend(context_index)
+
+        q_context_index.extend(context_index)
         q_context_index, _, _ = clip_pad_sentence(q_context_index, DO.context_max_his_len_q)
         q_context_index = torch.tensor(q_context_index, dtype=torch.long)
 
@@ -163,7 +165,8 @@ class SessionDataset(Dataset):
 
 
 
-        batch = [identity,
+        batch = [all_movie,
+                 identity,
                  response_index,
                  context_gen,
                  context_index,

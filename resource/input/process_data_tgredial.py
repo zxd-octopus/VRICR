@@ -21,11 +21,14 @@ def process_topic_TGRedial():
 
     n_entity = max(entity2id.values())
     p_logger.debug(
-        f"[Load entity dictionary and KG from {DO.DBpedia2id} and {DO.DBpedia_graph}]")
+        f"[Load entity dictionary and KG from {DO.DBpedia2id_TG} and {DO.DBpedia_graph_TG}]")
 
     edge_list = []  # [(entity, entity, relation)]
     entity2neighbor = defaultdict(list)  # {entityId: List[entity]}
     for i, line in enumerate(entity_kg):
+        # if i == 10000:
+        #     break
+
         triple = line.strip().split('\t')
         e0 = entity2id[triple[0]]
         e1 = entity2id[triple[2]]
@@ -64,8 +67,7 @@ def process_topic_TGRedial():
         e_num += 1
     p_logger.debug(f"[an entity can be connected to {max_len} entities at most]")
     p_logger.debug(f"[an entity can be connected to {sum_len/e_num} entities on average]")
-    p_logger.info("External KGs process done！")
-
+    p_logger.info("External KGs process done!")
     topic2id = {filte_entity(entity):idx  for idx, entity in id2entity.items() if entity!='None'}
 
     graph_info=[topic2id,n_entity,relation2id,len(relation2id),graph,edges,entity2neighbor]
@@ -99,7 +101,7 @@ def get_dialog_info_TGReidal(tokenizer,task):
         augmented_convs_ =[]
         with open(DO.raw_data_filename_TG.format(subset), 'r', encoding='utf-8') as f:
             raw_data = json.load(f)
-            p_logger.debug(f"[Load train data from {DO.raw_data_filename_Redial.format(subset)}]")
+            p_logger.debug(f"[Load {subset} data from {DO.raw_data_filename_TG.format(subset)}]")
         for conversation in tqdm(raw_data):
             augmented_convs = []
             last_role = None
@@ -113,6 +115,7 @@ def get_dialog_info_TGReidal(tokenizer,task):
                 text_token_ids = tokenizer.tokenize(" ".join(text))
                 movie_ids = [entity2id[movie] for movie in utt['movie'] if movie in entity2id]
                 entity_ids = [entity2id[entity] for entity in utt['entity'] if entity in entity2id]
+                #word_ids = [self.word2id[word] for word in utt['word'] if word in self.word2id] # todo
                 policy = []
                 for action, kw in zip(utt['target'][1::2], utt['target'][2::2]):
                     if kw is None or action == '推荐电影':
@@ -142,6 +145,7 @@ def get_dialog_info_TGReidal(tokenizer,task):
         for raw_conv_dict in tqdm(augmented_convs_):
             augmented_conv_dicts = []
             context_tokens, context_entities, context_words, context_policy, context_items,context_tokens_gen = [], [], [], [], [],[]
+            pad_utters = []
             entity_set, word_set = set(), set()
             for i, conv in enumerate(raw_conv_dict):
                 text_tokens, entities, movies, policies,text_tokens_gen = conv["text"], conv["entity"], conv["movie"], conv['policy'],conv["text_gen"]
@@ -157,6 +161,7 @@ def get_dialog_info_TGReidal(tokenizer,task):
                                 "items": mv,
                                 "all_movies": movies.copy(),
                                 "context_tokens_gen": context_tokens_gen.copy(),
+                                "response_word":text_tokens.copy(),
                             }
                             augmented_conv_dicts.append(conv_dict)
                     if task == "generation":
@@ -199,11 +204,11 @@ def get_dialog_info_TGReidal(tokenizer,task):
     return conv_info, tok2ind, ind2tok
 
 def process_data_TG(tokenizer,task):
-    p_logger.info("Processing external KGs:")
+    p_logger.info("Processing external KGs")
     graph_info = process_topic_TGRedial()
 
     # process conversation
-    p_logger.info("Processing dialogue session:")
+    p_logger.info("Processing dialogue session")
     conv_info, tok2ind, ind2tok = get_dialog_info_TGReidal(tokenizer,task)
     return graph_info, conv_info, tok2ind, ind2tok
 

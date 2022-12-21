@@ -58,7 +58,7 @@ def process_topic_Redial(SELF_LOOP_ID=185):
         e_num += 1
     p_logger.debug(f"[an entity can be connected to {max_len} entities at most]")
     p_logger.debug(f"[an entity can be connected to {sum_len/e_num} entities on average]")
-    p_logger.info("External KGs process done！")
+    p_logger.info("External KGs process done!")
     topic2id = {entity:idx  for idx, entity in id2entity.items() if entity != 'None'}
     graph_info=[topic2id,n_entity,relation_idx,len(relation_idx),graph,edge_list,entity2neighbor]
     return graph_info
@@ -94,7 +94,7 @@ def get_dialog_info_Reidal(tokenizer,task):
         augmented_convs_ =[]
         with open(DO.raw_data_filename_Redial.format(subset), 'r', encoding='utf-8') as f:
             raw_data = json.load(f)
-            p_logger.debug(f"[Load train data from {DO.raw_data_filename_Redial.format(subset)}]")
+            p_logger.debug(f"[Load {subset} data from {DO.raw_data_filename_Redial.format(subset)}]")
         for conversation in tqdm(raw_data):
             dialog = conversation["dialog"]
             augmented_convs = []
@@ -126,8 +126,7 @@ def get_dialog_info_Reidal(tokenizer,task):
             augmented_convs_.append(augmented_convs)
 
         augmented_conv_dicts_ = []
-        for conv in tqdm(augmented_convs_):
-            raw_conv_dict = conv
+        for raw_conv_dict in tqdm(augmented_convs_):
             augmented_conv_dicts = []
             context_tokens, context_entities, context_tokens_gen= [], [], []
             entity_set = set()
@@ -145,6 +144,7 @@ def get_dialog_info_Reidal(tokenizer,task):
                                 "items": mv,
                                 "all_movies": movies.copy(),
                                 "context_tokens_gen" : context_tokens_gen.copy(),
+                                "response_word":text_tokens.copy(),
                             }
                             augmented_conv_dicts.append(conv_dict)
                     if task == "generation":
@@ -183,9 +183,10 @@ def get_dialog_info_Reidal(tokenizer,task):
     return conv_info,tok2ind,ind2tok
 
 def process_data_Redial(tokenizer,task):
-    p_logger.info("Processing external KGs:")
+    p_logger.info("Processing external KGs")
     graph_info = process_topic_Redial()
 
-    p_logger.info("Processing dialogue session:")
+    # process conversation
+    p_logger.info("Processing dialogue session")
     conv_info,tok2ind,ind2tok = get_dialog_info_Reidal(tokenizer,task)
     return graph_info, conv_info,tok2ind,ind2tok

@@ -15,7 +15,7 @@ from resource.input.session_dataset import my_collate_fn
 import  transformers
 import json
 
-engine_logger = logging.getLogger("main.engine")
+engine_logger = logging.getLogger("main.rec_engine")
 torch.set_default_tensor_type(torch.FloatTensor)
 class Rec_Engine:
     def __init__(self,
@@ -88,19 +88,17 @@ class Rec_Engine:
     def train(self,pretrain=False):
 
         optim_interval = int(TrainOption.efficient_train_batch_size / TrainOption.train_batch_size)
-
+        global_step = 0
+        engine_logger.info("optim interval = {}".format(optim_interval))
         if pretrain:
             #********************************************stage1 for pretraining********************************************
-            pretrain_best_metrics = [0.0]
-            global_step = 0
-            engine_logger.info("optim interval = {}".format(optim_interval))
-            for epoch in range(TrainOption.epoch1):
+            for epoch in range(TrainOption.epoch1+1 if DatasetOption.dataset=="TG" else TrainOption.epoch1):#since TG datasest is smaller
                 pbar = tqdm(self.train_dataloader)
                 engine_logger.info("EPOCH {}".format(epoch))
                 # FOR BATCH
                 for batch_data in pbar:
                     subgraphs = [self.edge_idx.to(TrainOption.device), self.edge_type.to(TrainOption.device)]
-                    [batch_data,identities ] = batch_data
+                    [batch_data,all_movies,identities ] = batch_data
 
                     sub_graph = batch_data[-1].to(TrainOption.device)
                     batch_data = [data.to(TrainOption.device) for data in batch_data[:-1]]
@@ -129,41 +127,40 @@ class Rec_Engine:
                         for optimizer in self.optimizer:
                             optimizer.step()
                             optimizer.zero_grad()
-                    # TEST
-                    if global_step % TrainOption.test_eval_interval == 0:
-
-                        # EVALUATION
-                        pretrain_metrics = self.test(self.test_dataloader,pretrain = True)
-                        pretrain_metrics[0] = pretrain_metrics[0] * 5
-                        if pretrain_best_metrics is None or sum(pretrain_metrics) > sum(pretrain_best_metrics):
-                            pretrain_best_metrics = pretrain_metrics
-                            ckpt_filename = DatasetOption.ckpt_filename_template_pretrain.format(dataset=DatasetOption.dataset,
-                                                                                        task=DatasetOption.task,
-                                                                                        uuid=TrainOption.task_uuid,
-                                                                                        global_step=global_step)
-                            mkdir_if_necessary(os.path.dirname(ckpt_filename))
-                            self.model.dump(ckpt_filename)
-                            engine_logger.info("dump new best pretrain model checkpoint to {}\n".format(ckpt_filename))
-                        else:
-                            engine_logger.info("STEP {}, pretrain metrics are not improved".format(global_step))
 
                     # LOG LOSS INFO
                     if global_step % TrainOption.log_loss_interval == 0:
                         engine_logger.info("Pretrain STEP: {}, loss {}".format(global_step, loss_info))
 
+                # EVALUATION
+                # valid
+                metrics_valid = self.test(self.valid_dataloader, mode="valid", pretrain=True)
+                metric_str_valid = "(" + "-".join(["{:.3f}".format(x) for x in metrics_valid]) + ")"
+                engine_logger.info("STEP {}, valid metric: {}".format(global_step,metric_str_valid))
 
-        # ******************************************** stage2 for train ********************************************
+                # test
+                metrics = self.test(self.test_dataloader, pretrain=True)
+                metric_str = "(" + "-".join(["{:.3f}".format(x) for x in metrics]) + ")"
+                engine_logger.info("STEP {}, test metric: {}".format(global_step,metric_str))
+
+                ckpt_filename = DatasetOption.ckpt_filename_template.format(
+                    dataset=DatasetOption.dataset,
+                    task=DatasetOption.task,
+                    uuid=TrainOption.task_uuid,
+                    global_step=global_step)
+                mkdir_if_necessary(os.path.dirname(ckpt_filename))
+                self.model.dump(ckpt_filename)
+                engine_logger.info("dump model checkpoint to {}\n".format(ckpt_filename))
+
+
         else:
-            global_step = 0
-            best_metrics = [0.0]
-            o_best_metric_str = "(" + "-".join(["{:.4f}".format(x) for x in best_metrics]) + ")"
-            engine_logger.info("optim interval = {}".format(optim_interval))
-            for epoch in range(TrainOption.epoch2_rec):
+            # ******************************************** stage2 for train ********************************************
+            for epoch in range(TrainOption.epoch2+3 if DatasetOption.dataset=="TG" else TrainOption.epoch2):
                 pbar = tqdm(self.train_dataloader)
                 engine_logger.info("EPOCH {}".format(epoch))
                 for batch_data in pbar:
                     subgraphs = [self.edge_idx.to(TrainOption.device), self.edge_type.to(TrainOption.device)]
-                    [batch_data,identities ] = batch_data
+                    [batch_data,all_movies,identities ] = batch_data
 
                     sub_graph = batch_data[-1].to(TrainOption.device)
                     batch_data=[data.to(TrainOption.device) for data in batch_data[:-1]]
@@ -191,36 +188,22 @@ class Rec_Engine:
                             optimizer.step()
                             optimizer.zero_grad()
 
-                    # TEST
+                    # EVALUATION
                     if global_step % TrainOption.test_eval_interval == 0:
+                        # VALID
+                        metrics_valid = self.test(self.valid_dataloader, mode="valid")
+                        metric_str_valid = "(" + "-".join(["{:.3f}".format(x) for x in metrics_valid]) + ")"
+                        engine_logger.info("STEP {}, metric: recall@1-recall@10-recall@50: {}".format(global_step, metric_str_valid))
 
-                        # EVALUATION
+                        # TEST
                         metrics= self.test(self.test_dataloader)
-                        #o_best_metric_str = "(" + "-".join(["{:.4f}".format(x) for x in best_metrics]) + ")"
-                        metric_str = "(" + "-".join(["{:.4f}".format(x) for x in metrics]) + ")"
+                        metric_str = "(" + "-".join(["{:.3f}".format(x) for x in metrics]) + ")"
+                        engine_logger.info("STEP {}, metric: recall@1-recall@10-recall@50:{}\n".format(global_step, metric_str))
 
-                        metrics[0] = metrics[0]*5
-
-                        if best_metrics is None or sum(metrics) > sum(best_metrics):
-                            engine_logger.info("STEP {}, origin metric: {}, best metric: {}".format(global_step,
-                                                                                                    o_best_metric_str,
-                                                                                                    metric_str))
-                            best_metrics = metrics
-                            o_best_metric_str = metric_str
-
-                            ckpt_filename = DatasetOption.ckpt_filename_template.format(dataset= DatasetOption.dataset,
-                                                                                        task = DatasetOption.task ,
-                                                                                        uuid=TrainOption.task_uuid,
-                                                                                        global_step=global_step,
-                                                                                        metric=metric_str)
-                            mkdir_if_necessary(os.path.dirname(ckpt_filename))
-                            self.model.dump(ckpt_filename)
-                            engine_logger.info("dump model checkpoint to {}\n".format(ckpt_filename))
-                        else:
-                            engine_logger.info("STEP {}, metrics are not improved, now is {}".format(global_step,metric_str))
 
                     if global_step % TrainOption.log_loss_interval == 0:
                         engine_logger.info("STEP: {}, loss {}".format(global_step, loss_info))
+
 
     def test(self, dataloader, mode="test" , pretrain = False):
         """test or valid"""
@@ -228,6 +211,7 @@ class Rec_Engine:
         self.model.eval()
         all_targets_index = []
         all_outputs_index = []
+        all_movie_list = []
         engine_logger.info("{} START INFERENCE ...".format(mode.upper()))
         pbar = tqdm(dataloader)
 
@@ -237,7 +221,7 @@ class Rec_Engine:
 
                 # LOAD DATA
                 subgraphs = [self.edge_idx.to(TrainOption.device), self.edge_type.to(TrainOption.device)]
-                [ batch_data,identities] = batch_data
+                [ batch_data,all_movies,identities] = batch_data
 
                 batch_data = [data.to(TrainOption.device) for data in batch_data[:-1]]
                 # LOAD DATA
@@ -248,15 +232,16 @@ class Rec_Engine:
 
                 all_outputs_index+=outputs.tolist()  #[all,T]
                 all_targets_index+=targets.tolist()  #[all,T]
+                all_movie_list.extend(all_movies)
         engine_logger.info("{} INFERENCE FINISHED".format(mode.upper()))
         self.model.train()
 
         # metric
-        metrics,cnt = self.eval_hit(all_targets_index, all_outputs_index)
+        metrics,cnt = self.eval_hit(all_targets_index, all_outputs_index,all_movie_list)
         return metrics
 
-    def eval_hit(self,targets,hit_cals):
-        metrics_rec = {"recall@1":0, "recall@10":0,"recall@50":0, "loss": 0, "count": 0}
+    def eval_hit(self,targets,hit_cals,all_movie_list):
+        metrics_rec = {"recall@1":0,"recall@10":0,"recall@50":0, "loss": 0, "count": 0}
 
         cnt = 0
         hit_cals = torch.tensor(hit_cals)

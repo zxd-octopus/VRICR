@@ -25,7 +25,7 @@ class JsonWriter:
             sample[self.hyp_key] = hyps[i]
             context.append(sample)
 
-        jw_logger.info("dumping to {} with {} samples".format(filename, len(context)))
+        jw_logger.info("dumping to {} ".format(filename))
         s = time.time()
         json.dump(context, open(filename, "w"), ensure_ascii=False, indent=4)
         jw_logger.info("dump done in {} seconds".format(time.time() - s))

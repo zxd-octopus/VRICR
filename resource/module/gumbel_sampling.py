@@ -73,12 +73,8 @@ class GUMBEL(nn.Module):
         """
         if training:
             ret = self.train_act2(sample,tau)
-            tmp = torch.nonzero(self.test_act3(sample))
-            print("there are {} pairs of entities has relation in training".format(len(tmp)))
         else:
             ret = self.test_act3(sample)
-            tmp = torch.nonzero(ret)
-            print("there are {} pairs of entities has relation infered in testing".format(len(tmp)))
             ret = torch.zeros(sample.size(), device=sample.device).scatter(-1, ret.unsqueeze(-1), 1)
 
 

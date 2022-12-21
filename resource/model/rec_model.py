@@ -40,6 +40,7 @@ class rec_model(BaseModel):
         self._build_encoder_layer()
         self._build_decoder_layer()
 
+
     def freeze_parameters(self, freeze_models):
         print('[freeze {} parameter unit]'.format(len(freeze_models)))
         for model in freeze_models:
@@ -57,6 +58,7 @@ class rec_model(BaseModel):
                 param.requires_grad = True
 
     def _build_graph_encoder_layer(self):
+
         self.RGCN = RGCNConv(self.topics_num, self.kg_emb_dim, self.relations_num, num_bases=8)
 
     def _build_relation_infer_layer(self):
@@ -76,8 +78,11 @@ class rec_model(BaseModel):
 
     def context_encoder(self,context_index, target=False, q_context_token_index = None):
         his_src_mask = get_pad_mask(context_index, self.pad_idx)
+
         q_enc_his_pooler = None
+
         enc_context_pooler = self.his_encoder(context_index, his_src_mask)['pooler_output']
+
         if target:
             q_context_token_index_mask = get_pad_mask(q_context_token_index, self.pad_idx)  # B, 1, T (torch.bool) for attention mask
             q_enc_his_pooler = self.his_encoder(q_context_token_index, q_context_token_index_mask)['pooler_output']
@@ -162,12 +167,12 @@ class rec_model(BaseModel):
             user_attn_list.append(torch.cat((user_attn,mask_attn),0))
         return torch.stack(user_repr_list, dim=0) ,torch.stack(user_attn_list, dim=0)  # (bs, dim),(bs,es_num)
 
-    def recommend(self, ed_prob = None, ed_idx = None ,topic_rep=None, es_idx=None,es_len = None, pretrain = False):
+    def recommend(self, ed_prob = None, ed_idx = None ,topic_rep=None, es_idx=None,es_len = None,pretrain = False):
+
+        es_attn_rep,es_attn = self._encode_user(es_idx, es_len, topic_rep)# for es_rep
 
         if pretrain:
-            es_attn_rep, es_attn = self._encode_user(es_idx, es_len, topic_rep)  # for es_rep
             user_rep = es_attn_rep
-
         else:
             ed_pre = topic_rep.index_select(0, ed_idx.view(-1)).reshape(ed_idx.size()[0], ed_idx.size()[1], -1)
 
@@ -178,14 +183,12 @@ class rec_model(BaseModel):
         rec_scores = F.softmax(rec_scores)
 
         if not pretrain:
+            ed_prob_avg = 1 / (ed_prob.sum(-1) + 1e-10).unsqueeze(-1).detach()
+            ed_prob = torch.mul(ed_prob, ed_prob_avg)
             copy_topic_temp = rec_scores.new_zeros(rec_scores.size(0), rec_scores.size(1))
             copy_topic_prob = copy_topic_temp.scatter_add(dim=1,
                                                           index=ed_idx,
                                                           src=ed_prob)
-
-            ed_prob_avg = 1 / (copy_topic_prob.sum(-1) + 1e-10).unsqueeze(-1).detach()
-            copy_topic_prob = torch.mul(copy_topic_prob, ed_prob_avg)
-
             rec_scores = 0.9 * rec_scores + 0.1 * copy_topic_prob
 
         return rec_scores
@@ -215,6 +218,7 @@ class rec_model(BaseModel):
         p_relation, q_relation,q_relation_gumble,topic_rep \
             =self.relation_cal(his=enc_context_pooler, tgt_rep=q_enc_context_pooler,
                                               es_idx=es_idx, ed_idx=ed_idx, graph =graph)
+
 
         ed_prob,gumbel_relation =  self.sample(q_relation_gumble,es_mask)
         outputs = self.recommend(ed_prob, ed_idx ,topic_rep=topic_rep, es_idx=es_idx, es_len=es_idx_len)

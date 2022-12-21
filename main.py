@@ -20,7 +20,7 @@ from resource.util.json_writer import JsonWriter
 from resource.input.vocab import vocab_transfer
 from resource.model.conv_model import conversation_model
 import gc
-import json
+
 
 main_logger = get_logger("main", "data/log/{}.log".format(TrainOption.task_uuid))
 main_logger.info("TASK ID {}".format(TrainOption.task_uuid))
@@ -31,7 +31,7 @@ def main():
     np.random.seed(sed_num)
     torch.random.manual_seed(sed_num)
     args = config()
-    main_logger.info(f"Data Processing for Dataset: {DO.dataset}")
+    main_logger.info("process data")
 
     assert DO.dataset in["TG","Redial"] and DO.task in ["recommend","generation"]
 
@@ -52,37 +52,33 @@ def main():
     train_sessions, test_sessions, valid_sessions=conv_info
     toca = TOCoAppear(topic_to_id,topic_num  = topic_class_num)
 
-
     train_dataset = SessionDataset(train_sessions,topic_to_id,tokenizer,toca, "train",relation_class_num,graph,entity2neighbor,topic_num=topic_class_num)
     test_dataset = SessionDataset(test_sessions,topic_to_id,tokenizer,toca, "test",relation_class_num,graph,entity2neighbor,topic_num=topic_class_num)
     valid_dataset = SessionDataset(valid_sessions,topic_to_id,tokenizer,toca, "valid",relation_class_num,graph,entity2neighbor,topic_num=topic_class_num)
 
     vocab_size = len(tok2ind)
-    main_logger.info(f"Create Model for Subtask: {DO.task}")
+    main_logger.info("creating model")
 
     # PROCESS MODEL
     model = None
     engine = None
 
-    if (args.test or not args.pretrain) and args.ckpt is None:
-        main_logger.warning("args.ckpt should not be None if args.test is True or not pre-trian stage")
+    if not args.pretrain and args.ckpt is None:
+        main_logger.warning("args.ckpt should not be None if not in pretrian stage")
 
     if DO.task == "recommend":
-        movie_ids_filename = DO.movie_ids if DO.dataset == "Redial" else DO.movie_ids_TG
-        movie_ids = json.load(open(movie_ids_filename, 'r', encoding='utf-8'))
         model = rec_model(topics_num=topic_class_num,
                          kg_emb_dim=DO.kg_emb_dim,
                          d_word_vec=DO.trans_embed_dim,
                          d_model=DO.trans_embed_dim,
                          d_inner=TRO.dimension_hidden,
                          n_head=TRO.num_head,
-                         device=TrainOption.device)
+                         device=TrainOption.device
+                         )
         if args.ckpt is not None:
             model.load(args.ckpt, strict=False)
-            main_logger.info("Load Weight From {}".format(args.ckpt))
+            main_logger.info("load weight from {}".format(args.ckpt))
 
-        if (args.test or not args.pretrain) and args.ckpt is None:
-            main_logger.warning("args.ckpt should not be None if args.test is True or not pre-trian stage")
 
     if DO.task == "generation":
         loc2glo = vocab_transfer(topic_class_num, topic_to_id, tok2ind)
@@ -101,7 +97,7 @@ def main():
         )
         if args.ckpt is not None:
             model.load(args.ckpt, strict=False)
-            main_logger.info("Load Weight From {}".format(args.ckpt))
+            main_logger.info("load weight from {}".format(args.ckpt))
 
     model = model.to(TrainOption.device)
     if DO.task == "recommend":
@@ -134,13 +130,14 @@ def main():
         outputs = engine.test(engine.test_dataloader)#test
         if DO.task == "recommend":
             metrics = outputs
-            metric = "(" + "-".join(["{:.4f}".format(x) for x in metrics]) + ")"
-            main_logger.info("metric for recommendation:{}".format(metric))
+            metric = "(" + "-".join(["{:.3f}".format(x) for x in metrics]) + ")"
+            main_logger.info("metric for recommendation: recall@1-recall@10-recall@50:{}".format(metric))
 
         if DO.task == "generation":
             res_gth, res_gen, metrics, identities_list = outputs
 
-            metric = "(" + "-".join(["{:.4f}".format(x) for x in metrics]) + ")"
+            metric = "(" + "-".join(["{:.3f}".format(x) for x in metrics[2:]]) + ")"#移除Dist1和Dist2的值
+            main_logger.info("metric for generation:dist@3-dist@4-rouge@1-rouge@2-rouge@l:{}".format(metric))
             test_filename = DO.test_filename_template.format(dataset=DO.dataset,
                                                         task=DO.task,
                                                         uuid=TrainOption.task_uuid,
@@ -153,7 +150,8 @@ def main():
             jsw.write2file(filename=test_filename,
                            gths=res_gth,
                            hyps=res_gen,
-                           identites = identities_list)
+                           identites = identities_list
+                           )
 
 if __name__ == '__main__':
     main()

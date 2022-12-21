@@ -51,9 +51,6 @@ def config():
     parser.add_argument("--cfg", nargs="*")
     parser.add_argument("-bw", "--beam_width", type=int, default=1)
     parser.add_argument("--rec_con", action="store_true", default=False)
-    parser.add_argument("--mask_mv", action="store_true", default=False)
-    parser.add_argument("--mask_copy", action="store_true", default=False)
-    parser.add_argument("--DBpedia_graph", type=str, default="data/Redial_c2/dbpedia_subkg.json")
 
 
     parser.add_argument("-l0", "--lambda_0", type=float, default=10.0)
@@ -125,7 +122,6 @@ def config():
     DatasetOption.update("task", args.task)
     DatasetOption.update("max_p_topic",args.sample)
     DatasetOption.update("trans_embed_dim", args.embed_dim)
-    DatasetOption.update("DBpedia_graph",args.DBpedia_graph)
     if args.negtive:
         DatasetOption.update("negtive_sample",False)
 

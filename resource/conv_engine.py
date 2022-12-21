@@ -65,9 +65,10 @@ class Conv_Engine():
     def train(self,pretrian = None):
         global_step = 0
         best_metrics = [0.0] * 4
+        best_metrics_valid = [0.0] * 4
         optim_interval = int(TrainOption.efficient_train_batch_size / TrainOption.train_batch_size)
         conv_engine_logger.info("optim interval = {}".format(optim_interval))
-        for epoch in range(TrainOption.epoch2_conv):
+        for epoch in range(TrainOption.epoch_conv):
             pbar = tqdm(self.train_dataloader)
             conv_engine_logger.info("EPOCH {}".format(epoch))
             for batch_data in pbar:
@@ -75,7 +76,7 @@ class Conv_Engine():
                     subgraphs = [self.edge_idx.to(TrainOption.device), self.edge_type.to(TrainOption.device)]
                 elif TrainOption.use_GCN:
                     subgraphs = self.edge_type.to(TrainOption.device)
-                [batch_data,identities ] = batch_data
+                [batch_data,all_movies,identities ] = batch_data
 
                 batch_data = [data.to(TrainOption.device) for data in batch_data[:-1]]
                 global_step += 1
@@ -94,45 +95,56 @@ class Conv_Engine():
                     self.optimizer.step()
                     self.optimizer.zero_grad()
 
-                    # TEST
-                if global_step % TrainOption.test_eval_interval == 0:
-                        # EVALUATION
-                    all_targets, all_outputs, metrics,all_identities = self.test(self.test_dataloader)
-                    o_best_metric_str = "(" + "-".join(["{:.4f}".format(x) for x in best_metrics]) + ")"
-                    metric_str = "(" + "-".join(["{:.4f}".format(x) for x in metrics]) + ")"
-
-                    if best_metrics is None or sum(metrics) > sum(best_metrics):
-                        conv_engine_logger.info("STEP {}, origin metric: {}, best metric: {}".format(global_step,
-                                                                                                o_best_metric_str,
-                                                                                                metric_str))
-                        best_metrics = metrics
-
-                        ckpt_filename = DatasetOption.ckpt_filename_template.format(dataset=DatasetOption.dataset,
-                                                                                    task=DatasetOption.task,
-                                                                                    uuid=TrainOption.task_uuid,
-                                                                                    global_step=global_step,
-                                                                                    metric=metric_str)
-                        mkdir_if_necessary(os.path.dirname(ckpt_filename))
-                        self.model.dump(ckpt_filename)
-                        conv_engine_logger.info("dump model checkpoint to {}\n".format(ckpt_filename))
-                    else:
-                        conv_engine_logger.info("STEP {}, metrics are not improved".format(global_step))
-
-                    test_filename = DatasetOption.test_filename_template.format(dataset=DatasetOption.dataset,
-                                                                                task=DatasetOption.task,
-                                                                                uuid=TrainOption.task_uuid,
-                                                                                mode="test",
-                                                                                global_step=global_step,
-                                                                                metric=metric_str)
-                    mkdir_if_necessary(os.path.dirname(test_filename))
-                    self.json_writer.write2file(filename=test_filename,
-                                                gths=all_targets,
-                                                hyps=all_outputs,
-                                                identites = all_identities)
-
                 # LOG LOSS INFO
                 if global_step % TrainOption.log_loss_interval == 0:
                     conv_engine_logger.info("STEP: {}, loss {}".format(global_step, loss_info))
+
+            # EVALUATION
+            # valid
+            all_targets_valid, all_outputs_valid, metrics_valid, all_identities_valid = self.test(self.valid_dataloader,mode="valid")
+            metric_str_valid = "(" + "-".join(["{:.3f}".format(x) for x in metrics_valid][2:]) + ")"
+
+            if best_metrics_valid is None or sum(metrics_valid) > sum(best_metrics_valid):
+                best_metrics_valid = metrics_valid
+
+                valid_filename = DatasetOption.test_filename_template.format(dataset=DatasetOption.dataset,
+                                                                            task=DatasetOption.task,
+                                                                            uuid=TrainOption.task_uuid,
+                                                                            mode="valid",
+                                                                            global_step=global_step,
+                                                                            metric=metric_str_valid)
+                mkdir_if_necessary(os.path.dirname(valid_filename))
+                self.json_writer.write2file(filename=valid_filename,
+                                            gths=all_targets_valid,
+                                            hyps=all_outputs_valid,
+                                            identites=all_identities_valid)
+
+            conv_engine_logger.info(
+                "STEP {}, Epoch {}, metric:dist@3-dist@4-rouge@1-rouge@2-rouge@l: {}".format(global_step, epoch,
+                                                                                             metric_str_valid))
+
+            #test
+            all_targets, all_outputs, metrics, all_identities = self.test(self.test_dataloader)
+            metric_str = "(" + "-".join(["{:.3f}".format(x) for x in metrics[2:]]) + ")"
+
+            if best_metrics is None or sum(metrics) > sum(best_metrics):
+                best_metrics = metrics
+
+                test_filename = DatasetOption.test_filename_template.format(dataset=DatasetOption.dataset,
+                                                                            task=DatasetOption.task,
+                                                                            uuid=TrainOption.task_uuid,
+                                                                            mode="test",
+                                                                            global_step=global_step,
+                                                                            metric=metric_str)
+                mkdir_if_necessary(os.path.dirname(test_filename))
+                self.json_writer.write2file(filename=test_filename,
+                                            gths=all_targets,
+                                            hyps=all_outputs,
+                                            identites=all_identities)
+            conv_engine_logger.info(
+                "STEP {}, Epoch {}, metric:dist@3-dist@4-rouge@1-rouge@2-rouge@l: {}\n".format(global_step, epoch,
+                                                                                               metric_str))
+
 
     def test(self,dataloader,mode="test"):
         assert mode in ["test","valid"]
@@ -150,7 +162,7 @@ class Conv_Engine():
                     subgraphs = [self.edge_idx.to(TrainOption.device), self.edge_type.to(TrainOption.device)]
                 elif TrainOption.use_GCN:
                     subgraphs = self.edge_type.to(TrainOption.device)
-                [batch_data,identity ] = batch_data
+                [batch_data,all_movies,identity ] = batch_data
 
                 batch_data = [data.to(TrainOption.device) for data in batch_data[:-1]]
 

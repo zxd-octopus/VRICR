@@ -27,13 +27,13 @@ class DatasetOption:
 
     tgt_hyp_spliter = " <==> "
     test_filename_template = "data/cache/{dataset}/{task}/{uuid}/{mode}-{global_step}-{metric}.txt"
-    ckpt_filename_template = "data/ckpt/{dataset}/{task}/{uuid}/{global_step}-{metric}.model.ckpt"
+    ckpt_filename_template = "data/ckpt/{dataset}/{task}/{uuid}/{global_step}.model.ckpt"
     ckpt_filename_template_pretrain = "data/ckpt/{dataset}/{task}/{uuid}/pretrain-{global_step}.model.ckpt"
 
     dataset = "TG"
     task = "recommend"
 
-    #TG
+
     DBpedia2id_TG = 'data/TG_c2/entity2id.json'
     raw_data_filename_TG = "data/TG_c2/{}_data.json"
     save_filename_TG = "data/TG_c2/{}_processed_data_TG.pkl"

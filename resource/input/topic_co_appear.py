@@ -10,7 +10,7 @@ co_logger = logging.getLogger("main.co_appear")
 
 class TOCoAppear:
     """DSCooccur
-    topic CO-Occurrence via training data.
+    topic Symptom CO-Occurrence, disease symptom co-occurrence probability via training data.
 
     existing topic --> predicting topic
     """
@@ -54,7 +54,7 @@ class TOCoAppear:
         topic_trans_pairs = list()
         topics_counter = Counter()
 
-        co_logger.info("processing topic CO-Occurrence via training data:")
+        co_logger.info("processing entity CO-Occurrence via training data")
         if DO.dataset == "TG":
             entity2id = json.load(open(DO.DBpedia2id_TG, 'r', encoding='utf-8'))  # {entity: entity_id}
             with open(DO.raw_data_filename_TG.format("train"), 'r', encoding='utf-8') as f:

@@ -8,8 +8,6 @@ import re
 
 vocab_logger = logging.getLogger("main.vocab")
 
-# For Copy Mechanism
-
 def vocab_transfer(topic_num,topic_to_id,tokenizer):
     if DO.dataset == "Redial":
         dbid2entity = json.load(open(DO.DBID2en, 'r', encoding='utf-8'))  # {entity: entity_id}
