@@ -2,7 +2,7 @@
 The source code for WSDM 2023 Paper "Variational Reasoning over Incomplete Knowledge Graphs for Conversational Recommendation"
 
 ## Overview
-We propose Variational Reasoning over Incomplete KGs Conversational Recommender. Our key idea is to incorporate the large dialogue corpus naturally accompanied with CRS to enhance the incomplete knowledge graphs; and adopt the variational Bayesian method to perform dynamic knowledge reasoning conditioned on the dialogue context. Specifically, we introduce the ideal dialogue context-aware knowledge subgraphs as latent variables with categorical prior from the observed incomplete knowledge graphs and dialogue corpus. Then, we use variational reasoning to approximate the posterior distribution and obtain the enhanced knowledge subgraphs, which can not only leverage the dialogue corpus for restructuring the missing entity relations but also perform dynamic knowledge selection for recommendation based on the dialogue context.
+We propose Variational Reasoning over Incomplete KGs Conversational Recommender. Our key idea is to incorporate the large dialogue corpus naturally accompanied with CRSs to enhance the incomplete knowledge graphs; and adopt the variational Bayesian method to perform dynamic knowledge reasoning conditioned on the dialogue context. Specifically, we denote the dialogue-specific subgraphs of KGs as latent variables with categorical priors for adaptive knowledge graphs refactor. We propose a variational Bayesian method to approximate posterior distributions over dialogue-specific subgraphs, which not only leverages the dialogue corpus for restructuring missing entity relations but also dynamically selects knowledge based on the dialogue context.
 
 ![avatar](model.png)
 
@@ -15,12 +15,12 @@ The downloaded ckpt files should be moved into `data/ckpt`.
 We run all experiments and tune hyperparameters on a RTX3090 with 24GB memory, you can adjust `train_batch_size` and `test_batch_size` according to your GPU, and then the optimization hyperparameters also need to be tuned.
 ```
 sh script/redial/redial_rec_pretrain.sh
-sh script/redial/redial_rec_finetune.sh # remember to change --task_ID and --best_ckpt_path_for_pretrain
-sh script/redial/redial_conv.sh # remember to change --task_ID and --best_ckpt_path_for_rec_finetune
+sh script/redial/redial_rec_finetune.sh # remember to change --task_ID_for_pretrain and --last_ckpt_path_for_pretrain
+sh script/redial/redial_conv.sh
 
 sh script/tgredial/train/redial_rec_pretrain.sh
-sh script/tgredial/tgredial_rec_finetune.sh # remember to change --task_ID and --best_ckpt_path_for_pretrain
-sh script/tgredial/tgredial_conv.sh # remember to change --task_ID and --best_ckpt_path_for_rec_finetune
+sh script/tgredial/tgredial_rec_finetune.sh # remember to change --task_ID_for_pretrain and --last_ckpt_path_for_pretrain
+sh script/tgredial/tgredial_conv.sh 
 ```
 
 You can also test the model has been saved by us.
