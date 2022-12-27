@@ -35,7 +35,7 @@ sh script/tgredial/eval/tgredial_conv_eval.sh
 
 
 ## Contact
-If you have any questions for our paper or codes, please send an email to xiaoyu.zhang@mail.sdu.edu.com.
+If you have any questions for our paper or codes, please send an email to xiaoyu.zhang@mail.sdu.edu.cn.
 
 ## Acknowledgement
 Our datasets and data process code are developed based on [C2-CRS](https://github.com/Zyh716/WSDM2022-C2CRS)
